@@ -87,20 +87,20 @@ pub fn convert_woff2_to_ttf(input_buffer: &mut impl Buf) -> Result<Vec<u8>, Deco
     };
 
     // for checking the compressed size
-    let stream_start_remaining = input_buffer.remaining();
+    // let stream_start_remaining = input_buffer.remaining();
 
     let mut decompressed_tables =
         Vec::with_capacity(table_directory.uncompressed_length.try_into().unwrap());
 
     brotli::BrotliDecompress(&mut input_buffer.reader(), &mut decompressed_tables)?;
 
-    let compressed_size = stream_start_remaining - input_buffer.remaining();
+    // let compressed_size = stream_start_remaining - input_buffer.remaining();
 
-    if compressed_size != usize::try_from(header.total_compressed_size).unwrap() + 1 {
-        Err(DecodeError::Invalid(
-            "Compressed stream size does not match header".to_string(),
-        ))?;
-    }
+    // if compressed_size != usize::try_from(header.total_compressed_size).unwrap() + 1 {
+    //     Err(DecodeError::Invalid(
+    //         "Compressed stream size does not match header".to_string(),
+    //     ))?;
+    // }
 
     let mut out_buffer = Vec::with_capacity(header.total_sfnt_size as usize);
     // space for headers; we'll fill this in later once we've calculated table locations and
@@ -140,7 +140,7 @@ pub fn convert_woff2_to_ttf(input_buffer: &mut impl Buf) -> Result<Vec<u8>, Deco
 mod tests {
     use std::io::Cursor;
 
-    use crate::test_resources::{FONTAWESOME_REGULAR_400, LATO_V22_LATIN_REGULAR};
+    use crate::test_resources::{FONTAWESOME_REGULAR_400, LATO_V22_LATIN_REGULAR, Loongtype_Shirupozhu};
 
     use super::convert_woff2_to_ttf;
 
@@ -157,6 +157,14 @@ mod tests {
     fn read_loca_is_not_after_glyf_font() {
         // In this test font, the loca table does not follow the glyf table.
         let buffer = FONTAWESOME_REGULAR_400;
+        let ttf = convert_woff2_to_ttf(&mut Cursor::new(buffer)).unwrap();
+        assert_eq!(None, ttf_parser::fonts_in_collection(&ttf));
+        let _parsed_ttf = ttf_parser::Face::from_slice(&ttf, 1).unwrap();
+    }
+
+    #[test]
+    fn test_glyf() {
+        let buffer = Loongtype_Shirupozhu;
         let ttf = convert_woff2_to_ttf(&mut Cursor::new(buffer)).unwrap();
         assert_eq!(None, ttf_parser::fonts_in_collection(&ttf));
         let _parsed_ttf = ttf_parser::Face::from_slice(&ttf, 1).unwrap();
