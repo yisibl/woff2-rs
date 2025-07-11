@@ -1,6 +1,6 @@
 use bytes::{Buf, BufMut};
 use four_cc::FourCC;
-pub use safer_bytes::{error::Truncated as TruncatedError, SafeBuf};
+pub use safer_bytes::error::Truncated as TruncatedError;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -54,7 +54,10 @@ where
     fn try_get_base_128(&mut self) -> Result<u32, Base128Error> {
         let mut accum = 0u32;
         for i in 0..5 {
-            let byte = self.try_get_u8()?;
+            if self.remaining() < 1 {
+                return Err(Base128Error::Truncated);
+            }
+            let byte = self.get_u8();
             // no leading 0s
             if i == 0 && byte == 0x80 {
                 return Err(Base128Error::LeadingZero);
@@ -76,11 +79,34 @@ where
         const ONE_MORE_BYTE_CODE_2: u8 = 254;
         const WORD_CODE: u8 = 253;
         const LOWEST_UCODE: u16 = 253;
-        let code = self.try_get_u8()?;
+        
+        if self.remaining() < 1 {
+            return Err(TruncatedError);
+        }
+        let code = self.get_u8();
+        
         match code {
-            WORD_CODE => self.try_get_u16(),
-            ONE_MORE_BYTE_CODE_1 => Ok(self.try_get_u8()? as u16 + LOWEST_UCODE),
-            ONE_MORE_BYTE_CODE_2 => Ok(self.try_get_u8()? as u16 + 2 * LOWEST_UCODE),
+            WORD_CODE => {
+                if self.remaining() < 2 {
+                    Err(TruncatedError)
+                } else {
+                    Ok(self.get_u16())
+                }
+            }
+            ONE_MORE_BYTE_CODE_1 => {
+                if self.remaining() < 1 {
+                    Err(TruncatedError)
+                } else {
+                    Ok(self.get_u8() as u16 + LOWEST_UCODE)
+                }
+            }
+            ONE_MORE_BYTE_CODE_2 => {
+                if self.remaining() < 1 {
+                    Err(TruncatedError)
+                } else {
+                    Ok(self.get_u8() as u16 + 2 * LOWEST_UCODE)
+                }
+            }
             _ => Ok(code as u16),
         }
     }
